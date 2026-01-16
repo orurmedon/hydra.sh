@@ -35,6 +35,8 @@
                             Connexion</button>
                         <button class="h-tab" data-sub="sub-saved"><i class="fa-solid fa-list"></i>
                             Configurations</button>
+                        <button class="h-tab" data-sub="sub-jumps"><i class="fa-solid fa-bridge"></i>
+                            Rebonds</button>
                     </div>
 
                     <!-- SUB: CONNECT -->
@@ -80,6 +82,24 @@
                             <div class="config-actions">
                                 <button id="btn-create-from-form" class="btn-secondary">Sauvegarder les champs
                                     actuels</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SUB: JUMPS -->
+                    <div id="sub-jumps" class="sub-pane">
+                        <div class="saved-configs">
+                            <h2><i class="fa-solid fa-bridge"></i> Serveurs de Rebond (Jump Hosts)</h2>
+                            <p style="color: #888; margin-bottom: 20px; font-size: 0.9em;">
+                                Enregistrez ici vos passerelles SSH pour y accéder plus facilement lors de vos
+                                connexions complexes.
+                            </p>
+                            <div id="jump-list-home" class="config-list-grid">
+                                <!-- Populated by JS -->
+                            </div>
+                            <div class="config-actions">
+                                <button id="btn-create-jump-from-form" class="btn-secondary">Sauvegarder en tant que
+                                    Rebond</button>
                             </div>
                         </div>
                     </div>

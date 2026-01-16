@@ -1,13 +1,9 @@
 import fs from 'fs/promises';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import { DB_FILE, CONNECTIONS_FILE } from '../config/constants.js';
+import { log } from '../utils/Logger.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const DB_FILE = path.join(__dirname, '../../data/history.json');
-const CONNECTIONS_FILE = path.join(__dirname, '../../data/connections.json');
-
-class JsonStorageProvider {
+class StorageService {
     constructor() {
         this.cache = null;
         this.connectionsCache = null;
@@ -46,7 +42,7 @@ class JsonStorageProvider {
 
         const record = {
             id: entryData.id,
-            user: entryData.user,
+            user: entryData.user, // This is the App ID
             cmd: entryData.cmd,
             output: entryData.output,
             duration: entryData.duration,
@@ -97,6 +93,9 @@ class JsonStorageProvider {
         }
 
         await this._saveConnections();
+
+        log('STORAGE', `Connection written to disk at: ${CONNECTIONS_FILE}`, 'SUCCESS');
+
         return this.connectionsCache;
     }
 
@@ -107,6 +106,10 @@ class JsonStorageProvider {
         await this._saveConnections();
         return this.connectionsCache;
     }
+
+    getConnectionFilePath() {
+        return CONNECTIONS_FILE;
+    }
 }
 
-export const Storage = new JsonStorageProvider();
+export const Storage = new StorageService();

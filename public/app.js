@@ -30,6 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById(btn.dataset.sub).classList.add('active');
 
             if (btn.dataset.sub === 'sub-saved') socket.emit('load-connections');
+            if (btn.dataset.sub === 'sub-jumps') socket.emit('load-connections');
         };
     });
 
@@ -58,7 +59,11 @@ document.addEventListener('DOMContentLoaded', () => {
         pane.appendChild(termDiv);
         tabsContent.appendChild(pane);
 
-        const term = new Terminal({ cursorBlink: true, fontFamily: 'Consolas, monospace', theme: { background: '#000' } });
+        const term = new Terminal({
+            cursorBlink: true,
+            fontFamily: 'Consolas, monospace',
+            theme: { background: '#000' }
+        });
         const fitAddon = new FitAddon.FitAddon();
         term.loadAddon(fitAddon);
         term.open(termDiv);
@@ -119,16 +124,49 @@ document.addEventListener('DOMContentLoaded', () => {
     socket.on('connections-list', (list) => {
         loadedConnections = list;
         renderConfigList();
+        renderJumpList(); // New
         updateJumpSelect();
     });
 
     function updateJumpSelect() {
         jumpSelect.innerHTML = '<option value="">-- Aucun --</option>';
+        // Filtre pour ne montrer que les rebonds si l'utilisateur les marque ainsi
+        // Sinon on montre tout pour garder la flexibilité actuelle
         loadedConnections.forEach(c => {
             const opt = document.createElement('option');
             opt.value = c.id;
-            opt.textContent = c.name;
+            opt.textContent = c.isJump ? `[REBOND] ${c.name}` : c.name;
             jumpSelect.appendChild(opt);
+        });
+    }
+
+    function renderJumpList() {
+        const jumpListHome = document.getElementById('jump-list-home');
+        if (!jumpListHome) return;
+        jumpListHome.innerHTML = '';
+
+        const jumpHosts = loadedConnections.filter(c => c.isJump);
+        if (jumpHosts.length === 0) {
+            jumpListHome.innerHTML = '<div style="grid-column: span 2; padding: 20px; color: #666; text-align: center; border: 1px dashed #444; border-radius: 8px;">Aucun rebond enregistré.</div>';
+            return;
+        }
+
+        jumpHosts.forEach(conf => {
+            const card = document.createElement('div');
+            card.className = 'config-card';
+            card.innerHTML = `
+                <h4>${conf.name}</h4>
+                <div class="meta">${conf.username}@${conf.host}</div>
+                <div class="card-actions">
+                    <button class="btn-del" data-id="${conf.id}"><i class="fa-solid fa-trash"></i></button>
+                </div>
+            `;
+
+            card.querySelector('.btn-del').onclick = () => {
+                if (confirm("Supprimer ce rebond ?")) socket.emit('delete-connection', conf.id);
+            };
+
+            jumpListHome.appendChild(card);
         });
     }
 
@@ -196,6 +234,23 @@ document.addEventListener('DOMContentLoaded', () => {
         socket.emit('save-connection', config);
     };
 
+    document.getElementById('btn-create-jump-from-form').onclick = () => {
+        const name = prompt("Nom de ce rebond ?");
+        if (!name) return;
+
+        const config = {
+            id: uuidv4(),
+            name: name,
+            isJump: true,
+            host: document.getElementById('ssh-host').value,
+            port: document.getElementById('ssh-port').value,
+            username: document.getElementById('ssh-user').value,
+            password: document.getElementById('ssh-pass').value,
+            useAgent: document.getElementById('ssh-agent').checked
+        };
+        socket.emit('save-connection', config);
+    };
+
     function launchConfig(id) {
         const conf = loadedConnections.find(c => c.id === id);
         if (!conf) return;
@@ -237,7 +292,13 @@ document.addEventListener('DOMContentLoaded', () => {
             entries.forEach(entry => {
                 const div = document.createElement('div');
                 div.className = 'history-entry';
-                div.innerHTML = `<span class="h-cmd">${entry.cmd}</span><div class="h-meta">${entry.timestamp.split('T')[1].split('.')[0]}</div>`;
+                div.innerHTML = `
+                    <div class="h-entry-top">
+                        <span class="h-cmd">${entry.cmd}</span>
+                        <span class="h-user"><i class="fa-solid fa-user"></i> ${entry.user || 'anon'}</span>
+                    </div>
+                    <div class="h-meta">${entry.timestamp.split('T')[1].split('.')[0]}</div>
+                `;
                 div.onclick = () => showModal(entry);
                 details.appendChild(div);
             });
