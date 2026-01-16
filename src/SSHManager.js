@@ -8,6 +8,7 @@ export class SSHSession {
         this.tabId = tabId;
         this.config = config;
         this.conn = new Client();
+        this.jumpConn = null;
         this.stream = null;
 
         // État pour l'historique
@@ -20,6 +21,32 @@ export class SSHSession {
     }
 
     connect() {
+        if (this.config.jumpConfig) {
+            this.connectViaJumpHost();
+        } else {
+            this.connectDirectly();
+        }
+    }
+
+    // Helper (extracted from old connect)
+    createConfig(cfg) {
+        const connectConfig = {
+            host: cfg.host,
+            port: parseInt(cfg.port),
+            username: cfg.username,
+            readyTimeout: 10000
+        };
+
+        if (cfg.useAgent && process.env.SSH_AUTH_SOCK) {
+            connectConfig.agent = process.env.SSH_AUTH_SOCK;
+            connectConfig.agentForward = true;
+        } else if (cfg.password) {
+            connectConfig.password = cfg.password;
+        }
+        return connectConfig;
+    }
+
+    connectDirectly(stream = null) {
         this.conn.on('ready', () => {
             this.emit('status', 'connected');
             this.emit('data', `\r\n\x1b[32m>>> Connecté à ${this.config.host}\x1b[0m\r\n`);
@@ -36,25 +63,51 @@ export class SSHSession {
         });
 
         try {
-            const connectConfig = {
-                host: this.config.host,
-                port: parseInt(this.config.port),
-                username: this.config.username,
-                readyTimeout: 10000
-            };
-
-            if (this.config.useAgent && process.env.SSH_AUTH_SOCK) {
-                // Use local agent
-                connectConfig.agent = process.env.SSH_AUTH_SOCK;
-                connectConfig.agentForward = true;
-            } else if (this.config.password) {
-                // Use password
-                connectConfig.password = this.config.password;
-            }
-
-            this.conn.connect(connectConfig);
+            const config = this.createConfig(this.config);
+            if (stream) config.sock = stream; // Use the forwarded stream
+            this.conn.connect(config);
         } catch (e) {
             this.emit('data', `\r\nErreur Config: ${e.message}\r\n`);
+        }
+    }
+
+    connectViaJumpHost() {
+        this.emit('data', `\r\n\x1b[33m>>> Connexion au Rebond: ${this.config.jumpConfig.host}...\x1b[0m\r\n`);
+
+        this.jumpConn = new Client();
+
+        this.jumpConn.on('ready', () => {
+            this.emit('data', `\r\n\x1b[32m>>> Rebond OK. Tunnel vers ${this.config.host}...\x1b[0m\r\n`);
+
+            // Tunnel
+            this.jumpConn.forwardOut(
+                '127.0.0.1', 8000,
+                this.config.host, parseInt(this.config.port),
+                (err, stream) => {
+                    if (err) {
+                        this.emit('data', `\r\n\x1b[31mErreur Tunnel: ${err.message}\x1b[0m\r\n`);
+                        return this.cleanup();
+                    }
+                    // Connect target via stream
+                    this.connectDirectly(stream);
+                }
+            );
+        });
+
+        this.jumpConn.on('error', (err) => {
+            this.emit('data', `\r\n\x1b[31mErreur Rebond: ${err.message}\x1b[0m\r\n`);
+        });
+
+        this.jumpConn.on('close', () => {
+            // If jump closes, everything closes
+            this.cleanup();
+        });
+
+        try {
+            const jumpConfig = this.createConfig(this.config.jumpConfig);
+            this.jumpConn.connect(jumpConfig);
+        } catch (e) {
+            this.emit('data', `\r\nErreur Config Rebond: ${e.message}\r\n`);
         }
     }
 
@@ -112,11 +165,14 @@ export class SSHSession {
         let duration = this.lastChunkTime - this.cmdStartTime;
         if (duration < 0) duration = 0;
 
+        // Nettoyage des séquences OSC (Window Title, etc.) qui polluent les logs
+        const cleanOutput = this.sanitizeOutput(this.outputBuffer);
+
         await Storage.addEntry(this.config.host, {
             id: uuidv4(),
             user: this.config.appUser,
             cmd: this.currentCmd,
-            output: this.outputBuffer,
+            output: cleanOutput,
             duration: duration
         });
 
@@ -131,6 +187,13 @@ export class SSHSession {
         this.recordTimeout = null;
     }
 
+    sanitizeOutput(text) {
+        // Regex pour supprimer les séquences OSC (Operating System Command)
+        // Format: ESC ] <params> ; <text> BEL(0x07) ou ESC \
+        // Ex: \x1b]0;User@Host:~\x07
+        return text.replace(/\x1b\][0-9;]+.*?(?:\x07|\x1b\\)/g, '');
+    }
+
     resize({ rows, cols }) {
         if (this.stream) this.stream.setWindow(rows, cols, 0, 0);
     }
@@ -141,5 +204,6 @@ export class SSHSession {
 
     cleanup() {
         if (this.conn) this.conn.end();
+        if (this.jumpConn) this.jumpConn.end();
     }
 }

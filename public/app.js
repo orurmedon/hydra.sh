@@ -9,24 +9,37 @@ document.addEventListener('DOMContentLoaded', () => {
     const socket = io();
     const tabs = {};
     let activeTabId = 'home-tab';
+    let loadedConnections = [];
 
-    // DOM Elements
+    // --- MAIN UI ELEMENTS ---
     const tabsList = document.getElementById('tabs-list');
     const tabsContent = document.getElementById('tabs-content');
     const historyTree = document.getElementById('history-tree');
     const activeIpLabel = document.getElementById('active-ip-label');
     const modal = document.getElementById('output-modal');
 
-    // --- LOGIQUE ONGLETS ---
+    // --- HOME SUB-TABS ---
+    const hTabs = document.querySelectorAll('.h-tab');
+    const subPanes = document.querySelectorAll('.sub-pane');
+
+    hTabs.forEach(btn => {
+        btn.onclick = () => {
+            hTabs.forEach(t => t.classList.remove('active'));
+            subPanes.forEach(p => p.classList.remove('active'));
+            btn.classList.add('active');
+            document.getElementById(btn.dataset.sub).classList.add('active');
+
+            if (btn.dataset.sub === 'sub-saved') socket.emit('load-connections');
+        };
+    });
+
+    // --- TERMINAL TAB MANAGEMENT ---
     function createTab(config) {
         const tabId = uuidv4();
-
-        // 1. Bouton
         const btn = document.createElement('button');
         btn.className = 'tab-btn';
         btn.dataset.id = tabId;
         btn.innerHTML = `<i class="fa-solid fa-terminal"></i> ${config.host} <span class="close-tab">×</span>`;
-
         btn.onclick = (e) => {
             if (e.target.classList.contains('close-tab')) {
                 e.stopPropagation();
@@ -35,11 +48,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 switchTab(tabId);
             }
         };
-
-        // FIX: Utilisation de appendChild au lieu de insertBefore
         tabsList.appendChild(btn);
 
-        // 2. Pane
         const pane = document.createElement('div');
         pane.className = 'tab-pane';
         pane.id = `pane-${tabId}`;
@@ -48,19 +58,15 @@ document.addEventListener('DOMContentLoaded', () => {
         pane.appendChild(termDiv);
         tabsContent.appendChild(pane);
 
-        // 3. Terminal
         const term = new Terminal({ cursorBlink: true, fontFamily: 'Consolas, monospace', theme: { background: '#000' } });
         const fitAddon = new FitAddon.FitAddon();
         term.loadAddon(fitAddon);
         term.open(termDiv);
 
-        // Timeout pour s'assurer que le DOM est prêt avant le fit
         setTimeout(() => fitAddon.fit(), 50);
 
-        // 4. State
         tabs[tabId] = { id: tabId, ip: config.host, term, fitAddon, history: {} };
 
-        // 5. I/O
         term.onData(data => socket.emit('terminal-input', { tabId, data }));
         socket.emit('create-session', { ...config, tabId });
 
@@ -68,11 +74,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function switchTab(id) {
-        // UI Reset
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
 
-        // Activate
         const btn = document.querySelector(`.tab-btn[data-id="${id}"]`);
         const pane = document.getElementById(`pane-${id}`);
         if (btn) btn.classList.add('active');
@@ -81,20 +85,16 @@ document.addEventListener('DOMContentLoaded', () => {
         activeTabId = id;
 
         if (tabs[id]) {
-            // C'est un onglet terminal
             setTimeout(() => {
                 tabs[id].fitAddon.fit();
                 tabs[id].term.focus();
             }, 50);
-
             activeIpLabel.textContent = `Connecté à : ${tabs[id].ip}`;
             renderHistoryTree(tabs[id].history);
-
             socket.emit('resize', { tabId: id, rows: tabs[id].term.rows, cols: tabs[id].term.cols });
         } else {
-            // C'est l'accueil
             activeIpLabel.textContent = "Non connecté";
-            historyTree.innerHTML = '<div style="padding:10px; color:#666; font-style:italic">Sélectionnez un terminal pour voir l\'historique.</div>';
+            historyTree.innerHTML = '<div style="padding:10px; color:#666; font-style:italic">Sélectionnez un terminal.</div>';
         }
     }
 
@@ -109,42 +109,106 @@ document.addEventListener('DOMContentLoaded', () => {
         switchTab('home-tab');
     }
 
-    // --- FORMULAIRE CONNEXION ---
-    document.getElementById('btn-connect-ssh').addEventListener('click', () => {
+    document.querySelector('.tab-btn[data-id="home-tab"]').onclick = () => switchTab('home-tab');
+
+    // --- CONNECTION & CONFIG LOGIC ---
+    const jumpSelect = document.getElementById('ssh-jump');
+    const configListHome = document.getElementById('config-list-home');
+
+    socket.emit('load-connections');
+    socket.on('connections-list', (list) => {
+        loadedConnections = list;
+        renderConfigList();
+        updateJumpSelect();
+    });
+
+    function updateJumpSelect() {
+        jumpSelect.innerHTML = '<option value="">-- Aucun --</option>';
+        loadedConnections.forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c.id;
+            opt.textContent = c.name;
+            jumpSelect.appendChild(opt);
+        });
+    }
+
+    function renderConfigList() {
+        if (!configListHome) return;
+        configListHome.innerHTML = '';
+        loadedConnections.forEach(conf => {
+            const card = document.createElement('div');
+            card.className = 'config-card';
+            card.innerHTML = `
+                <h4>${conf.name}</h4>
+                <div class="meta">${conf.user || conf.username}@${conf.host}</div>
+                <div class="card-actions">
+                    <button class="btn-launch" data-id="${conf.id}"><i class="fa-solid fa-play"></i> Lancer</button>
+                    <button class="btn-del" data-id="${conf.id}"><i class="fa-solid fa-trash"></i></button>
+                </div>
+            `;
+
+            card.querySelector('.btn-launch').onclick = () => {
+                launchConfig(conf.id);
+            };
+
+            card.querySelector('.btn-del').onclick = () => {
+                if (confirm("Supprimer ?")) socket.emit('delete-connection', conf.id);
+            };
+
+            configListHome.appendChild(card);
+        });
+    }
+
+    document.getElementById('btn-connect-ssh').onclick = () => {
         const config = {
             appUser: document.getElementById('app-user').value,
             host: document.getElementById('ssh-host').value,
             port: document.getElementById('ssh-port').value,
             username: document.getElementById('ssh-user').value,
             password: document.getElementById('ssh-pass').value,
-            useAgent: document.getElementById('ssh-agent').checked
+            useAgent: document.getElementById('ssh-agent').checked,
+            jumpHost: document.getElementById('ssh-jump').value
         };
 
-        if (!config.host || !config.username) return alert("Hôte et Utilisateur requis");
-        if (!config.password && !config.useAgent) return alert("Mot de passe ou Agent SSH requis");
-
-        createTab(config);
-    });
-
-    // GESTION UI AGENT
-    const agentCheckbox = document.getElementById('ssh-agent');
-    const passInput = document.getElementById('ssh-pass');
-
-    agentCheckbox.addEventListener('change', (e) => {
-        if (e.target.checked) {
-            passInput.disabled = true;
-            passInput.placeholder = "(Authentification via Agent)";
-            passInput.value = "";
-        } else {
-            passInput.disabled = false;
-            passInput.placeholder = "SSH Password";
+        if (config.jumpHost) {
+            const jump = loadedConnections.find(c => c.id === config.jumpHost);
+            if (jump) config.jumpConfig = jump;
         }
-    });
 
-    // GESTION ACCUEIL
-    document.querySelector('.tab-btn[data-id="home-tab"]').addEventListener('click', () => switchTab('home-tab'));
+        if (!config.host || !config.username) return alert("Hôte et Utilisateur requis");
+        createTab(config);
+    };
 
-    // --- SOCKET EVENTS ---
+    document.getElementById('btn-create-from-form').onclick = () => {
+        const name = prompt("Nom de la configuration ?");
+        if (!name) return;
+
+        const config = {
+            id: uuidv4(),
+            name: name,
+            host: document.getElementById('ssh-host').value,
+            port: document.getElementById('ssh-port').value,
+            username: document.getElementById('ssh-user').value,
+            password: document.getElementById('ssh-pass').value,
+            useAgent: document.getElementById('ssh-agent').checked,
+            jumpHost: document.getElementById('ssh-jump').value
+        };
+        socket.emit('save-connection', config);
+    };
+
+    function launchConfig(id) {
+        const conf = loadedConnections.find(c => c.id === id);
+        if (!conf) return;
+
+        const finalCfg = { ...conf, appUser: document.getElementById('app-user').value };
+        if (conf.jumpHost) {
+            const jump = loadedConnections.find(c => c.id === conf.jumpHost);
+            if (jump) finalCfg.jumpConfig = jump;
+        }
+        createTab(finalCfg);
+    }
+
+    // --- SOCKET DATA ---
     socket.on('data', ({ tabId, payload }) => {
         if (tabs[tabId]) tabs[tabId].term.write(payload);
     });
@@ -156,95 +220,40 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- RENDU HISTORIQUE (GROUPÉ) ---
     function renderHistoryTree(historyData) {
         historyTree.innerHTML = '';
         if (!historyData || Object.keys(historyData).length === 0) {
             historyTree.innerHTML = '<div style="padding:10px; color:#666">Vide.</div>';
             return;
         }
-
-        const groups = { today: [], week: {}, older: {} };
-        const now = new Date();
-        const todayStr = now.toISOString().split('T')[0];
-
         Object.keys(historyData).sort().reverse().forEach(dateKey => {
-            const dateObj = new Date(dateKey);
-            const diffDays = Math.floor((now - dateObj) / (1000 * 60 * 60 * 24));
             const entries = historyData[dateKey];
-
-            if (dateKey === todayStr) {
-                groups.today.push(...entries);
-            } else if (diffDays <= 7) {
-                const dayName = dateObj.toLocaleDateString('fr-FR', { weekday: 'long' });
-                const capDay = dayName.charAt(0).toUpperCase() + dayName.slice(1);
-                if (!groups.week[capDay]) groups.week[capDay] = [];
-                groups.week[capDay].push(...entries);
-            } else {
-                const month = dateObj.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
-                const capMonth = month.charAt(0).toUpperCase() + month.slice(1);
-                if (!groups.older[capMonth]) groups.older[capMonth] = [];
-                groups.older[capMonth].push(...entries);
-            }
-        });
-
-        // Helper pour afficher une liste
-        const createGroup = (title, items, open = false) => {
-            if (items.length === 0) return;
             const details = document.createElement('details');
-            if (open) details.open = true;
-
+            details.open = true;
             const summary = document.createElement('summary');
-            summary.textContent = `${title} (${items.length})`;
+            summary.textContent = `${dateKey} (${entries.length})`;
             details.appendChild(summary);
 
-            items.forEach(entry => {
+            entries.forEach(entry => {
                 const div = document.createElement('div');
                 div.className = 'history-entry';
-                const time = entry.timestamp.split('T')[1].split('.')[0];
-                const duration = entry.duration ? `${entry.duration}ms` : '<1ms';
-                div.innerHTML = `
-                    <div class="h-head"><span class="h-cmd">${entry.cmd}</span><span class="h-time">${time}</span></div>
-                    <div class="h-meta"><i class="fa-solid fa-user"></i> ${entry.user} | <i class="fa-solid fa-clock"></i> ${duration}</div>
-                `;
+                div.innerHTML = `<span class="h-cmd">${entry.cmd}</span><div class="h-meta">${entry.timestamp.split('T')[1].split('.')[0]}</div>`;
                 div.onclick = () => showModal(entry);
                 details.appendChild(div);
             });
             historyTree.appendChild(details);
-        };
-
-        // Rendu séquentiel
-        if (groups.today.length) createGroup("Aujourd'hui", groups.today, true);
-
-        Object.keys(groups.week).forEach(day => createGroup(day, groups.week[day]));
-
-        if (Object.keys(groups.older).length) {
-            const div = document.createElement('div');
-            div.className = 'history-divider';
-            div.textContent = 'Archives';
-            historyTree.appendChild(div);
-            Object.keys(groups.older).forEach(m => createGroup(m, groups.older[m]));
-        }
+        });
     }
 
-    // --- MODALE ANSI ---
+    // --- MODAL ---
     function showModal(entry) {
         document.getElementById('modal-title').textContent = `CMD: ${entry.cmd}`;
         const body = document.getElementById('modal-body');
-
-        if (!entry.output) {
-            body.innerHTML = '<i>(Aucune sortie)</i>';
-        } else {
-            // Conversion ANSI -> HTML
-            const ansi_up = new AnsiUp();
-            body.innerHTML = ansi_up.ansi_to_html(entry.output);
-        }
+        body.innerHTML = entry.output ? new AnsiUp().ansi_to_html(entry.output) : '<i>(Vide)</i>';
         modal.classList.remove('hidden');
     }
-
     document.getElementById('btn-close-modal').onclick = () => modal.classList.add('hidden');
 
-    // Resize fenêtre
     window.addEventListener('resize', () => {
         if (tabs[activeTabId]) {
             tabs[activeTabId].fitAddon.fit();

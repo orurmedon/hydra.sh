@@ -3,22 +3,20 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>Mnemo.sh</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hydra.sh - Web SSH Audit</title>
     <link rel="stylesheet" href="style.css">
-    <script src="https://cdn.jsdelivr.net/npm/ansi_up@5.1.0/ansi_up.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css">
 </head>
 
 <body>
-
     <aside class="sidebar">
         <div class="sidebar-header">
-            <i class="fa-solid fa-clock-rotate-left"></i> Mnemo.sh
+            <i class="fa-solid fa-clock-rotate-left"></i> Hydra.sh
             <div id="active-ip-label" class="ip-label">Non connecté</div>
         </div>
-        <div id="history-tree" class="history-tree">
-        </div>
+        <div id="history-tree" class="history-tree"></div>
     </aside>
 
     <main class="main-area">
@@ -29,51 +27,83 @@
         </div>
 
         <div id="tabs-content" class="tabs-content">
-
+            <!-- HOME TAB -->
             <div class="tab-pane active" id="pane-home-tab">
-                <div class="connection-form">
-                    <h2><i class="fa-solid fa-bolt"></i> Nouvelle Connexion</h2>
-
-                    <div class="form-group">
-                        <label>Votre Identifiant</label>
-                        <input type="text" id="app-user" placeholder="ex: Admin" value="Admin">
+                <div class="home-container">
+                    <div class="home-tabs">
+                        <button class="h-tab active" data-sub="sub-connect"><i class="fa-solid fa-plug"></i>
+                            Connexion</button>
+                        <button class="h-tab" data-sub="sub-saved"><i class="fa-solid fa-list"></i>
+                            Configurations</button>
                     </div>
 
-                    <div class="ssh-group">
-                        <h3>Configuration SSH</h3>
-                        <input type="text" id="ssh-host" placeholder="IP / Host" value="localhost">
-                        <input type="number" id="ssh-port" placeholder="Port" value="22">
-                        <input type="text" id="ssh-user" placeholder="SSH User" value="">
-                        <input type="password" id="ssh-pass" placeholder="SSH Password">
+                    <!-- SUB: CONNECT -->
+                    <div id="sub-connect" class="sub-pane active">
+                        <div class="connection-form">
+                            <h2><i class="fa-solid fa-bolt"></i> Nouvelle Connexion</h2>
 
-                        <div style="margin-top: 10px; display: flex; align-items: center; gap: 8px;">
-                            <input type="checkbox" id="ssh-agent" style="width: auto;">
-                            <label for="ssh-agent" style="cursor: pointer;"
-                                title="Utilise l'agent SSH local pour l'authentification et le forwarding (git push, etc.)">Utiliser
-                                SSH Agent (Auth & Forward)</label>
+                            <div class="form-group">
+                                <label>Identifiant Applicatif</label>
+                                <input type="text" id="app-user" placeholder="ex: Admin" value="Admin">
+                            </div>
+
+                            <div class="ssh-group">
+                                <h3>Paramètres SSH</h3>
+                                <input type="text" id="ssh-host" placeholder="Hôte (ex: 1.2.3.4)" value="localhost">
+                                <input type="number" id="ssh-port" placeholder="Port" value="22">
+                                <input type="text" id="ssh-user" placeholder="Utilisateur SSH">
+                                <input type="password" id="ssh-pass" placeholder="Mot de passe SSH">
+
+                                <div class="check-row">
+                                    <input type="checkbox" id="ssh-agent">
+                                    <label for="ssh-agent">Utiliser SSH Agent (Keys)</label>
+                                </div>
+
+                                <div class="jump-row">
+                                    <label>Rebond (Jump Host)</label>
+                                    <select id="ssh-jump">
+                                        <option value="">-- Aucun --</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <button id="btn-connect-ssh" class="btn-primary">Connecter</button>
                         </div>
                     </div>
 
-                    <button id="btn-connect-ssh" class="btn-primary">Connecter</button>
+                    <!-- SUB: SAVED -->
+                    <div id="sub-saved" class="sub-pane">
+                        <div class="saved-configs">
+                            <h2><i class="fa-solid fa-bookmark"></i> Vos Connexions</h2>
+                            <div id="config-list-home" class="config-list-grid">
+                                <!-- Populated by JS -->
+                            </div>
+                            <div class="config-actions">
+                                <button id="btn-create-from-form" class="btn-secondary">Sauvegarder les champs
+                                    actuels</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
-
         </div>
     </main>
 
+    <!-- ANSI MODAL -->
     <div id="output-modal" class="modal hidden">
         <div class="modal-content">
             <div class="modal-header">
-                <span id="modal-title">Détails Commande</span>
-                <button id="btn-close-modal"><i class="fa-solid fa-xmark"></i></button>
+                <span id="modal-title">Output</span>
+                <button id="btn-close-modal">×</button>
             </div>
             <div id="modal-body" class="ansi-output"></div>
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
+    <!-- SCRIPTS -->
     <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ansi_up@5.2.1/ansi_up.min.js"></script>
     <script src="app.js"></script>
 </body>
 

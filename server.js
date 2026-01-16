@@ -60,6 +60,24 @@ io.on('connection', (socket) => {
     }
   });
 
+  // 5. Gestion des Connexions (CRUD)
+  socket.on('load-connections', async () => {
+    const connections = await Storage.getConnections();
+    socket.emit('connections-list', connections);
+  });
+
+  socket.on('save-connection', async (config) => {
+    const connections = await Storage.saveConnection(config);
+    socket.emit('connections-list', connections); // Broadcast possible si on veut
+    log('CONFIG', `Configuration sauvegardée : ${config.name || config.host}`);
+  });
+
+  socket.on('delete-connection', async (id) => {
+    const connections = await Storage.deleteConnection(id);
+    socket.emit('connections-list', connections);
+    log('CONFIG', `Configuration supprimée : ${id}`);
+  });
+
   socket.on('disconnect', () => {
     sessions.forEach(s => s.cleanup());
     sessions.clear();
