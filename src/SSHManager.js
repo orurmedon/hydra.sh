@@ -36,13 +36,23 @@ export class SSHSession {
         });
 
         try {
-            this.conn.connect({
+            const connectConfig = {
                 host: this.config.host,
                 port: parseInt(this.config.port),
                 username: this.config.username,
-                password: this.config.password,
                 readyTimeout: 10000
-            });
+            };
+
+            if (this.config.useAgent && process.env.SSH_AUTH_SOCK) {
+                // Use local agent
+                connectConfig.agent = process.env.SSH_AUTH_SOCK;
+                connectConfig.agentForward = true;
+            } else if (this.config.password) {
+                // Use password
+                connectConfig.password = this.config.password;
+            }
+
+            this.conn.connect(connectConfig);
         } catch (e) {
             this.emit('data', `\r\nErreur Config: ${e.message}\r\n`);
         }

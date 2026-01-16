@@ -116,10 +116,29 @@ document.addEventListener('DOMContentLoaded', () => {
             host: document.getElementById('ssh-host').value,
             port: document.getElementById('ssh-port').value,
             username: document.getElementById('ssh-user').value,
-            password: document.getElementById('ssh-pass').value
+            password: document.getElementById('ssh-pass').value,
+            useAgent: document.getElementById('ssh-agent').checked
         };
+
         if (!config.host || !config.username) return alert("Hôte et Utilisateur requis");
+        if (!config.password && !config.useAgent) return alert("Mot de passe ou Agent SSH requis");
+
         createTab(config);
+    });
+
+    // GESTION UI AGENT
+    const agentCheckbox = document.getElementById('ssh-agent');
+    const passInput = document.getElementById('ssh-pass');
+
+    agentCheckbox.addEventListener('change', (e) => {
+        if (e.target.checked) {
+            passInput.disabled = true;
+            passInput.placeholder = "(Authentification via Agent)";
+            passInput.value = "";
+        } else {
+            passInput.disabled = false;
+            passInput.placeholder = "SSH Password";
+        }
     });
 
     // GESTION ACCUEIL

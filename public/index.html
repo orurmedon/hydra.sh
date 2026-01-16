@@ -45,6 +45,13 @@
                         <input type="number" id="ssh-port" placeholder="Port" value="22">
                         <input type="text" id="ssh-user" placeholder="SSH User" value="">
                         <input type="password" id="ssh-pass" placeholder="SSH Password">
+
+                        <div style="margin-top: 10px; display: flex; align-items: center; gap: 8px;">
+                            <input type="checkbox" id="ssh-agent" style="width: auto;">
+                            <label for="ssh-agent" style="cursor: pointer;"
+                                title="Utilise l'agent SSH local pour l'authentification et le forwarding (git push, etc.)">Utiliser
+                                SSH Agent (Auth & Forward)</label>
+                        </div>
                     </div>
 
                     <button id="btn-connect-ssh" class="btn-primary">Connecter</button>
