@@ -1,0 +1,135 @@
+import { Client } from 'ssh2';
+import { v4 as uuidv4 } from 'uuid';
+import { Storage } from './StorageService.js';
+
+export class SSHSession {
+    constructor(socket, tabId, config) {
+        this.socket = socket;
+        this.tabId = tabId;
+        this.config = config;
+        this.conn = new Client();
+        this.stream = null;
+
+        // État pour l'historique
+        this.currentCmd = '';
+        this.outputBuffer = '';
+        this.cmdStartTime = null;
+        this.lastChunkTime = null;
+        this.isRecording = false;
+        this.recordTimeout = null;
+    }
+
+    connect() {
+        this.conn.on('ready', () => {
+            this.emit('status', 'connected');
+            this.emit('data', `\r\n\x1b[32m>>> Connecté à ${this.config.host}\x1b[0m\r\n`);
+            this.startShell();
+        });
+
+        this.conn.on('error', (err) => {
+            this.emit('data', `\r\n\x1b[31mErreur SSH: ${err.message}\x1b[0m\r\n`);
+        });
+
+        this.conn.on('close', () => {
+            this.emit('status', 'disconnected');
+            this.cleanup();
+        });
+
+        try {
+            this.conn.connect({
+                host: this.config.host,
+                port: parseInt(this.config.port),
+                username: this.config.username,
+                password: this.config.password,
+                readyTimeout: 10000
+            });
+        } catch (e) {
+            this.emit('data', `\r\nErreur Config: ${e.message}\r\n`);
+        }
+    }
+
+    startShell() {
+        // Lancement d'un shell interactif
+        this.conn.shell({ term: 'xterm-256color', cols: 80, rows: 24 }, (err, stream) => {
+            if (err) return;
+            this.stream = stream;
+
+            // SSH -> Navigateur
+            stream.on('data', (chunk) => {
+                const text = chunk.toString('utf-8');
+                this.emit('data', text);
+
+                // Capture
+                if (this.isRecording) {
+                    this.outputBuffer += text;
+                    this.lastChunkTime = Date.now(); // On note l'heure exacte
+
+                    // On repousse la sauvegarde tant qu'on reçoit des données
+                    if (this.recordTimeout) clearTimeout(this.recordTimeout);
+                    this.recordTimeout = setTimeout(() => this.finalizeLog(), 200);
+                }
+            });
+
+            stream.on('close', () => this.conn.end());
+        });
+    }
+
+    write(data) {
+        if (!this.stream) return;
+        this.stream.write(data);
+
+        // Détection de début de commande (Entrée)
+        if (data === '\r') {
+            if (this.currentCmd.trim()) {
+                this.cmdStartTime = Date.now();
+                this.isRecording = true;
+                this.outputBuffer = '';
+                this.lastChunkTime = this.cmdStartTime;
+            }
+        }
+        else if (data === '\u007F') { // Backspace
+            this.currentCmd = this.currentCmd.slice(0, -1);
+        }
+        else if (data >= ' ' && !this.isRecording) {
+            this.currentCmd += data;
+        }
+    }
+
+    async finalizeLog() {
+        if (!this.currentCmd.trim()) return;
+
+        // Calcul précis : Fin de réception - Début de commande
+        let duration = this.lastChunkTime - this.cmdStartTime;
+        if (duration < 0) duration = 0;
+
+        await Storage.addEntry(this.config.host, {
+            id: uuidv4(),
+            user: this.config.appUser,
+            cmd: this.currentCmd,
+            output: this.outputBuffer,
+            duration: duration
+        });
+
+        // Notifier le front
+        const history = await Storage.getHistoryByIp(this.config.host);
+        this.emit('history-updated', history);
+
+        // Reset
+        this.currentCmd = '';
+        this.isRecording = false;
+        this.outputBuffer = '';
+        this.recordTimeout = null;
+    }
+
+    resize({ rows, cols }) {
+        if (this.stream) this.stream.setWindow(rows, cols, 0, 0);
+    }
+
+    emit(event, payload) {
+        this.socket.emit(event, { tabId: this.tabId, payload });
+    }
+
+    cleanup() {
+        if (this.conn) this.conn.end();
+    }
+}

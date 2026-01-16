@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Mnemo.sh</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/ansi_up@5.1.0/ansi_up.min.js"></script>
+</head>
+
+<body>
+
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <i class="fa-solid fa-clock-rotate-left"></i> Mnemo.sh
+            <div id="active-ip-label" class="ip-label">Non connecté</div>
+        </div>
+        <div id="history-tree" class="history-tree">
+        </div>
+    </aside>
+
+    <main class="main-area">
+        <div class="tabs-header">
+            <div id="tabs-list" class="tabs-list">
+                <button class="tab-btn active" data-id="home-tab"><i class="fa-solid fa-house"></i> Accueil</button>
+            </div>
+        </div>
+
+        <div id="tabs-content" class="tabs-content">
+
+            <div class="tab-pane active" id="pane-home-tab">
+                <div class="connection-form">
+                    <h2><i class="fa-solid fa-bolt"></i> Nouvelle Connexion</h2>
+
+                    <div class="form-group">
+                        <label>Votre Identifiant</label>
+                        <input type="text" id="app-user" placeholder="ex: Admin" value="Admin">
+                    </div>
+
+                    <div class="ssh-group">
+                        <h3>Configuration SSH</h3>
+                        <input type="text" id="ssh-host" placeholder="IP / Host" value="localhost">
+                        <input type="number" id="ssh-port" placeholder="Port" value="22">
+                        <input type="text" id="ssh-user" placeholder="SSH User" value="">
+                        <input type="password" id="ssh-pass" placeholder="SSH Password">
+                    </div>
+
+                    <button id="btn-connect-ssh" class="btn-primary">Connecter</button>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <div id="output-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span id="modal-title">Détails Commande</span>
+                <button id="btn-close-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div id="modal-body" class="ansi-output"></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="app.js"></script>
+</body>
+
+</html>
