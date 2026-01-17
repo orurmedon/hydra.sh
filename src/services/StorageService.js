@@ -46,7 +46,9 @@ class StorageService {
             cmd: entryData.cmd,
             output: entryData.output,
             duration: entryData.duration,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            connectionName: entryData.connectionName,
+            executionType: entryData.executionType || 'bash'
         };
 
         // Ajout en haut de liste
@@ -57,6 +59,11 @@ class StorageService {
 
         await this._save();
         return record;
+    }
+
+    async getGlobalHistory() {
+        if (!this.cache) await this._load();
+        return this.cache;
     }
 
     // --- CONNECTIONS METHODS ---

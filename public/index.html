@@ -8,6 +8,15 @@
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css">
+    <style>
+        /* Small inline style fallback for Visual Interaction if styles.css isn't ready */
+        #visual-interaction-container {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #1e1e1e;
+        }
+    </style>
 </head>
 
 <body>
@@ -23,6 +32,8 @@
         <div class="tabs-header">
             <div id="tabs-list" class="tabs-list">
                 <button class="tab-btn active" data-id="home-tab"><i class="fa-solid fa-house"></i> Accueil</button>
+                <button class="tab-btn" data-id="visual-tab" id="btn-visual-tab"><i
+                        class="fa-solid fa-project-diagram"></i> Visual Interaction</button>
             </div>
         </div>
 
@@ -105,6 +116,23 @@
                     </div>
                 </div>
             </div>
+
+            <!-- VISUAL INTERACTION TAB -->
+            <div class="tab-pane" id="pane-visual-tab">
+                <div class="visual-layout">
+                    <div class="visual-sidebar">
+                        <h3><i class="fa-solid fa-chart-line"></i> Sankey</h3>
+                        <div class="filter-group">
+                            <label>Connexion</label>
+                            <select id="filter-connection" class="visual-select-single"></select>
+                        </div>
+                        <div class="visual-legend">
+                            <p><small>Visualisation des flux de commandes.</small></p>
+                        </div>
+                    </div>
+                    <div id="visual-interaction-container" class="visual-main"></div>
+                </div>
+            </div>
         </div>
     </main>
 
@@ -120,10 +148,13 @@
     </div>
 
     <!-- SCRIPTS -->
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://unpkg.com/d3-sankey@0.12.3/dist/d3-sankey.min.js"></script>
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/ansi_up@5.2.1/ansi_up.min.js"></script>
+    <script src="utils/VisualInteraction.js"></script>
     <script src="app.js"></script>
 </body>
 

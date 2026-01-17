@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { READY_TIMEOUT, RECORD_TIMEOUT } from '../config/constants.js';
 import EventEmitter from 'events';
 
+
 export class SSHSession extends EventEmitter {
     constructor(socket, tabId, config) {
         super();
@@ -20,6 +21,10 @@ export class SSHSession extends EventEmitter {
         this.lastChunkTime = null;
         this.isRecording = false;
         this.recordTimeout = null;
+        this.recordTimeout = null;
+        this.shellPrompt = null;
+        this.lastHostname = null;
+        this.initialHostname = null;
     }
 
     connect() {
@@ -119,13 +124,14 @@ export class SSHSession extends EventEmitter {
                 this.emit('session-data', text);
 
                 // Capturer le prompt initial s'il n'est pas encore défini
-                // On attend que la connexion soit stable (souvent la première chose reçue est le prompt ou le message d'accueil terminé par le prompt)
                 if (!this.shellPrompt && text.trim()) {
                     const lines = text.split(/\r?\n/);
                     const lastLine = lines[lines.length - 1].trim();
-                    // On considère que c'est un prompt si ça finit par $ ou # ou >
-                    if (lastLine.endsWith('$') || lastLine.endsWith('#') || lastLine.endsWith('>')) {
+                    const cleanLastLine = this.stripAnsi(lastLine);
+                    if (cleanLastLine.endsWith('$') || cleanLastLine.endsWith('#') || cleanLastLine.endsWith('>')) {
                         this.shellPrompt = lastLine;
+                        this.lastHostname = this.getHostnameFromPrompt(lastLine);
+                        if (!this.initialHostname) this.initialHostname = this.lastHostname;
                     }
                 }
 
@@ -142,32 +148,91 @@ export class SSHSession extends EventEmitter {
         });
     }
 
-    write(data) {
+    write(data, clientLine = null) {
         if (!this.stream) return;
         this.stream.write(data);
 
-        if (data === '\r') {
-            if (this.currentCmd.trim()) {
-                this.cmdStartTime = Date.now();
-                this.isRecording = true;
-                this.outputBuffer = '';
-                this.lastChunkTime = this.cmdStartTime;
+        // Process char by char to handle pasted text or fast typing
+        for (const char of data) {
+            if (char === '\r') {
+                // If currentCmd is dirty (arrows) or empty, try client line
+                const isDirty = /\x1b|\[[A-Z]/.test(this.currentCmd);
+                if ((!this.currentCmd.trim() || isDirty) && clientLine) {
+                    this.currentCmd = this.extractCommandFromLine(clientLine);
+                }
+
+                if (this.currentCmd.trim()) {
+                    this.cmdStartTime = Date.now();
+                    this.isRecording = true;
+                    this.outputBuffer = '';
+                    this.lastChunkTime = this.cmdStartTime;
+                }
+            }
+            else if (char === '\u007F') {
+                this.currentCmd = this.currentCmd.slice(0, -1);
+            }
+            else if (char >= ' ' && !this.isRecording) {
+                this.currentCmd += char;
             }
         }
-        else if (data === '\u007F') {
-            this.currentCmd = this.currentCmd.slice(0, -1);
+    }
+
+    extractCommandFromLine(line) {
+        // Try to strip known prompt
+        if (this.shellPrompt && line.endsWith(this.shellPrompt)) {
+            // If line ENDS with prompt (empty command), return empty
+            return '';
         }
-        else if (data >= ' ' && !this.isRecording) {
-            this.currentCmd += data;
+        if (this.shellPrompt && line.includes(this.shellPrompt)) {
+            const parts = line.split(this.shellPrompt);
+            return parts[parts.length - 1].trim();
         }
+
+        // Fallback: standard separators
+        // We take the last part to handle "user@host:~$ cmd"
+        if (line.includes('$ ')) return line.split('$ ').pop().trim();
+        if (line.includes('# ')) return line.split('# ').pop().trim();
+        if (line.includes('> ')) return line.split('> ').pop().trim();
+
+        return line.trim();
+    }
+
+    stripAnsi(str) {
+        return str.replace(/\x1b\[[0-9;]*m/g, '');
+    }
+
+    getHostnameFromPrompt(promptLine) {
+        if (!promptLine) return null;
+        const clean = this.stripAnsi(promptLine);
+        const match = /@([a-zA-Z0-9.-]+)([:$#>])/.exec(clean);
+        return match ? match[1] : null;
     }
 
     async finalizeLog() {
         if (!this.currentCmd.trim()) return;
+        const cmd = this.currentCmd.trim();
+        let executionType = 'bash';
+
+        // Filter out accidental paste of file listings
+        if (/^[-d][rwx-]{9}\s+/.test(cmd)) {
+            this.currentCmd = '';
+            this.isRecording = false;
+            return;
+        }
+
+        // Ignore escape sequences (Up/Down arrows history nav)
+        if (/^\[[A-Z]/.test(cmd) || /^\x1b/.test(cmd)) {
+            this.currentCmd = '';
+            this.isRecording = false;
+            return;
+        }
 
         // Détection de prompt de mot de passe (sudo, ssh, etc)
         const passwordRegex = /password|mot de passe|passphrase/i;
         if (passwordRegex.test(this.outputBuffer)) {
+            // Reset silently
+            this.currentCmd = '';
+            this.isRecording = false;
             return;
         }
 
@@ -181,17 +246,16 @@ export class SSHSession extends EventEmitter {
         const lines = cleanOutput.split(/\r?\n/);
         if (lines.length > 0) {
             let lastLine = lines[lines.length - 1].trim();
-
+            let cleanLastLine = this.stripAnsi(lastLine);
             let isPrompt = false;
 
             // 1. Comparaison avec le prompt capturé au départ
-            if (this.shellPrompt && lastLine === this.shellPrompt) {
+            if (this.shellPrompt && cleanLastLine === this.stripAnsi(this.shellPrompt)) {
                 isPrompt = true;
             }
-            // 2. Fallback "sysadmin" : motifs standard sans regex complexe
-            else if (lastLine.endsWith('$') || lastLine.endsWith('#') || lastLine.endsWith('>')) {
-                // On vérifie si y'a @ (user@host) ou : (path)
-                if (lastLine.includes('@') || lastLine.includes(':')) {
+            // 2. Fallback "sysadmin"
+            else if (cleanLastLine.endsWith('$') || cleanLastLine.endsWith('#') || cleanLastLine.endsWith('>')) {
+                if (cleanLastLine.includes('@') || cleanLastLine.includes(':')) {
                     isPrompt = true;
                 }
             }
@@ -199,17 +263,43 @@ export class SSHSession extends EventEmitter {
             if (isPrompt) {
                 lines.pop();
                 cleanOutput = lines.join('\n');
+
+                // Logic: DockerInteractive
+                const currentHostname = this.getHostnameFromPrompt(lastLine);
+
+                if (currentHostname && this.initialHostname && currentHostname !== this.initialHostname) {
+                    executionType = 'DockerInteractive';
+                }
+                if (currentHostname) this.lastHostname = currentHostname;
+
+                // Fallback: Command flags (-it) for the command that launches the session
+                if (executionType !== 'DockerInteractive' && (cmd.includes('docker') || cmd.includes('podman'))) {
+                    const isInteractiveFlag = /\s-([a-zA-Z]*i[a-zA-Z]*t[a-zA-Z]*|[a-zA-Z]*t[a-zA-Z]*i[a-zA-Z]*)\b/.test(cmd)
+                        || (/\s-i\b/.test(cmd) && /\s-t\b/.test(cmd));
+
+                    if (isInteractiveFlag) {
+                        executionType = 'DockerInteractive';
+                    }
+                }
             }
         }
 
-        // Emit event instead of calling Storage directly
+        // Determine execution type (Simple Docker check)
+        // Only if not already detected as Interactive
+        if (executionType === 'bash' && /^(sudo\s+)?(docker|podman)\b/.test(cmd)) {
+            executionType = 'docker';
+        }
+
+        // Emit event
         this.emit('command-completed', {
             id: uuidv4(),
             user: this.config.appUser,
             cmd: this.currentCmd,
             output: cleanOutput.trim(),
             duration: duration,
-            host: this.config.host
+            host: this.config.host,
+            connectionName: this.config.name || 'Direct Connection',
+            executionType: executionType
         });
 
         // Reset

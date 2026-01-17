@@ -22,6 +22,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const hTabs = document.querySelectorAll('.h-tab');
     const subPanes = document.querySelectorAll('.sub-pane');
 
+    // VISUAL INTERACTION
+    const visualBtn = document.getElementById('btn-visual-tab');
+    const visualInteraction = new VisualInteraction('visual-interaction-container');
+
+    visualBtn.onclick = () => {
+        switchTab('visual-tab');
+        socket.emit('load-full-history');
+    };
+
+    socket.on('full-history', (historyData) => {
+        visualInteraction.render(historyData);
+    });
+
     hTabs.forEach(btn => {
         btn.onclick = () => {
             hTabs.forEach(t => t.classList.remove('active'));
@@ -72,7 +85,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         tabs[tabId] = { id: tabId, ip: config.host, term, fitAddon, history: {} };
 
-        term.onData(data => socket.emit('terminal-input', { tabId, data }));
+        term.onData(data => {
+            if (data === '\r') {
+                const buffer = term.buffer.active;
+                const currentLine = buffer.getLine(buffer.cursorY)?.translateToString(true).trim() || '';
+                socket.emit('terminal-input', { tabId, data, currentLine });
+            } else {
+                socket.emit('terminal-input', { tabId, data });
+            }
+        });
         socket.emit('create-session', { ...config, tabId });
 
         switchTab(tabId);
@@ -84,7 +105,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const btn = document.querySelector(`.tab-btn[data-id="${id}"]`);
         const pane = document.getElementById(`pane-${id}`);
-        if (btn) btn.classList.add('active');
+        // Handle static buttons like home-tab and visual-tab
+        if (id === 'visual-tab') {
+            document.getElementById('btn-visual-tab').classList.add('active');
+        } else if (btn) {
+            btn.classList.add('active');
+        }
+
         if (pane) pane.classList.add('active');
 
         activeTabId = id;
@@ -124,14 +151,12 @@ document.addEventListener('DOMContentLoaded', () => {
     socket.on('connections-list', (list) => {
         loadedConnections = list;
         renderConfigList();
-        renderJumpList(); // New
+        renderJumpList();
         updateJumpSelect();
     });
 
     function updateJumpSelect() {
         jumpSelect.innerHTML = '<option value="">-- Aucun --</option>';
-        // Filtre pour ne montrer que les rebonds si l'utilisateur les marque ainsi
-        // Sinon on montre tout pour garder la flexibilité actuelle
         loadedConnections.forEach(c => {
             const opt = document.createElement('option');
             opt.value = c.id;
@@ -292,9 +317,18 @@ document.addEventListener('DOMContentLoaded', () => {
             entries.forEach(entry => {
                 const div = document.createElement('div');
                 div.className = 'history-entry';
+                let execIcon = '<i class="fa-solid fa-terminal" style="color: #28a745; margin-right: 5px;" title="Terminal"></i>';
+                if (entry.executionType === 'docker') {
+                    execIcon = '<i class="fa-brands fa-docker" style="color: #0db7ed; margin-right: 5px;" title="Docker"></i>';
+                } else if (entry.executionType === 'DockerInteractive') {
+                    execIcon = `
+                        <i class="fa-brands fa-docker" style="color: #0db7ed; margin-right: 2px;" title="Docker"></i>
+                        <span style="background-color:#0db7ed; color:white; border-radius:3px; font-size:9px; padding:1px 3px; margin-right:5px; vertical-align:text-top; font-weight:bold;">IT</span>
+                    `;
+                }
                 div.innerHTML = `
                     <div class="h-entry-top">
-                        <span class="h-cmd">${entry.cmd}</span>
+                        <span class="h-cmd">${execIcon}${entry.cmd}</span>
                         <span class="h-user"><i class="fa-solid fa-user"></i> ${entry.user || 'anon'}</span>
                     </div>
                     <div class="h-meta">${entry.timestamp.split('T')[1].split('.')[0]}</div>

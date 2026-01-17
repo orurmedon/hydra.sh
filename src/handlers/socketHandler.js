@@ -24,9 +24,9 @@ export const registerSocketHandlers = (io) => {
         });
 
         // 2. Réception des touches clavier
-        socket.on('terminal-input', ({ tabId, data }) => {
+        socket.on('terminal-input', ({ tabId, data, currentLine }) => {
             const session = sessions.get(tabId);
-            if (session) session.write(data);
+            if (session) session.write(data, currentLine);
         });
 
         // 3. Redimensionnement
@@ -61,6 +61,11 @@ export const registerSocketHandlers = (io) => {
             const connections = await Storage.deleteConnection(id);
             socket.emit('connections-list', connections);
             log('CONFIG', `Configuration supprimée : ${id}`);
+        });
+
+        socket.on('load-full-history', async () => {
+            const history = await Storage.getGlobalHistory();
+            socket.emit('full-history', history);
         });
 
         socket.on('disconnect', () => {

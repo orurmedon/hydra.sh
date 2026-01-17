@@ -404,3 +404,83 @@ select:focus {
 .hidden {
     display: none !important;
 }
+/* VISUAL INTERACTION */
+.visual-layout {
+    display: flex;
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+}
+
+.visual-sidebar {
+    width: 220px;
+    background: #1a1a1a;
+    border-right: 1px solid #333;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.visual-sidebar h3 {
+    margin: 0;
+    color: #fff;
+    font-size: 1.1em;
+}
+
+.visual-main {
+    flex: 1;
+    background: #111;
+    overflow: hidden;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.filter-group label {
+    font-size: 0.85em;
+    color: #aaa;
+}
+
+.visual-select-single {
+    width: 100%;
+    background: #252526;
+    color: #eee;
+    border: 1px solid #444;
+    padding: 8px;
+    border-radius: 4px;
+}
+
+.visual-legend {
+    margin-top: auto;
+    color: #666;
+}
+
+/* SSH Chain */
+.chain-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 15px 0;
+    padding: 15px;
+    background: #1a1a1a;
+    border-radius: 6px;
+}
+
+.chain-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    background: #252526;
+    border-radius: 4px;
+    border-left: 3px solid var(--accent);
+}
+
+.chain-arrow {
+    color: var(--accent);
+    font-size: 1.2em;
+}
