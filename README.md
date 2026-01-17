@@ -123,6 +123,30 @@ Voici les axes de développement futurs pour transformer Hydra en outil de produ
 * [ ] **Export d'Audit :** Téléchargement des logs de session en format `.txt` ou `.json`.
 * [ ] **Thématisation :** Sélecteur de thèmes pour le terminal (Solarized, Monokai, Github Light).
 
+
+
+
+--- 
+
+## 📸 Aperçu
+
+Voici quelques captures d'écran de l'interface de l'application :
+
+### Page d'accueil
+Une vue d'ensemble de l'application permettant d'accéder rapidement aux fonctionnalités principales.
+![Page d'accueil](docs/presentation/home.webp)
+
+### Interface de Connexion
+L'écran permettant d'initier une nouvelle connexion SSH vers un serveur distant.
+![Test de connexion](docs/presentation/connexiontest.webp)
+
+### Terminal Local
+Exemple d'une session active et fonctionnelle sur un environnement local (localhost).
+![Test Localhost](docs/presentation/localhosttest.webp)
+
+### Historique
+Visualisation de l'historique des sessions ou des commandes passées.
+![Historique](docs/presentation/historytest.webp)
 ---
 
 ## 📄 Licence
