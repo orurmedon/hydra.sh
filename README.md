@@ -4,7 +4,7 @@
 
 > **"The SSH Client with a Photographic Memory."**
 
-**Hydra.sh** (inspiré de *Mnémosyne*, déesse grecque de la mémoire) est un gestionnaire de sessions SSH Web nouvelle génération, conçu spécifiquement pour l'audit et la traçabilité.
+**Hydra.sh**  est un gestionnaire de sessions SSH Web nouvelle génération, conçu spécifiquement pour l'audit et la traçabilité.
 
 Contrairement aux terminaux classiques, Hydra ne se contente pas d'exécuter des commandes : **il s'en souvient**. Il capture l'entrée, la sortie complète (output), la durée d'exécution précise et l'auteur, le tout organisé dans une interface chronologique intelligente.
 
