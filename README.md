@@ -1,102 +1,133 @@
-🏛️ Hydra.sh
-"The SSH Client with a Photographic Memory."
 
-Hydra.sh (inspiré de Mnémosyne, déesse grecque de la mémoire) est un gestionnaire de sessions SSH Web conçu pour l'audit et la traçabilité.
 
-Contrairement aux terminaux classiques, Hydra ne se contente pas d'exécuter des commandes : il s'en souvient. Il capture l'entrée, la sortie complète (output), la durée d'exécution précise et l'auteur, le tout organisé dans une interface chronologique intelligente.
+# 🏛️ Hydra.sh
 
-✨ Fonctionnalités Clés
-🖥️ Terminal Web Avancé
-Multi-Onglets : Gérez plusieurs connexions simultanées via une barre d'onglets dynamique. Chaque onglet est indépendant.
+> **"The SSH Client with a Photographic Memory."**
 
-Émulation xterm.js : Support complet des couleurs, curseurs et interactions shell standards.
+**Hydra.sh** (inspiré de *Mnémosyne*, déesse grecque de la mémoire) est un gestionnaire de sessions SSH Web nouvelle génération, conçu spécifiquement pour l'audit et la traçabilité.
 
-Responsive : Le terminal s'adapte automatiquement à la taille de votre fenêtre.
+Contrairement aux terminaux classiques, Hydra ne se contente pas d'exécuter des commandes : **il s'en souvient**. Il capture l'entrée, la sortie complète (output), la durée d'exécution précise et l'auteur, le tout organisé dans une interface chronologique intelligente.
 
-📜 Historique & Audit (Le cœur du projet)
-Capture d'Output : Cliquez sur n'importe quelle commande passée pour voir exactement ce que le serveur a répondu (fichiers listés, logs d'erreurs, etc.).
+---
 
-Rendu ANSI Couleur : Les codes couleurs (ex: ls --color) sont préservés et convertis en HTML pour une lisibilité parfaite dans l'historique.
+## ✨ Fonctionnalités Clés
 
-Chronométrie Précise : Mesure exacte du temps d'exécution (en millisecondes) entre l'envoi de la commande et la fin de la réception des données.
+### 🖥️ Terminal Web Avancé
 
-Organisation Temporelle : L'historique est automatiquement trié en groupes : "Aujourd'hui", "Cette semaine", "Archives".
+* **Multi-Onglets Dynamiques :** Gérez plusieurs connexions simultanées (Prod, Dev, Staging) via une barre d'onglets fluide. Chaque instance est isolée.
+* **Émulation xterm.js :** Expérience native avec support complet des couleurs, curseurs, et interactions shell (Vim, Nano, htop supportés).
+* **Responsive Design :** L'interface et le terminal s'adaptent automatiquement à la taille de votre fenêtre.
 
-🏗️ Architecture Modulaire
-Backend Node.js : Basé sur Socket.io pour le temps réel et ssh2 pour la communication serveur.
+### 📜 Historique & Audit (Le cœur du système)
 
-Stockage Abstrait : Utilise actuellement un système de fichier JSON structuré, mais l'architecture StorageService est prête pour être connectée à une base SQL (PostgreSQL, SQLite).
+* **Capture d'Output "Deep Dive" :** Cliquez sur n'importe quelle commande passée pour ouvrir une modale contenant la réponse *exacte* du serveur (logs, listes de fichiers, erreurs).
+* **Rendu ANSI Haute-Fidélité :** Les codes couleurs (ex: `ls --color` ou logs colorés) sont préservés et convertis en HTML pour une lisibilité parfaite lors de la relecture.
+* **Chronométrie de Précision :** Mesure exacte du temps d'exécution (en millisecondes) — du moment où vous pressez `Entrée` jusqu'au dernier octet reçu.
+* **Timeline Intelligente :** L'historique est trié contextuellement : *"Aujourd'hui"*, *"Cette semaine"*, *"Archives"*.
 
-⚙️ Architecture du Projet
-Plaintext
+---
 
+## ⚙️ Architecture Technique
+
+Hydra repose sur une architecture modulaire Node.js, séparant clairement la logique de connexion, le stockage et l'interface temps réel.
+
+### Structure du Projet
+
+```text
 /hydra.sh
 ├── package.json          # Dépendances (express, socket.io, ssh2, uuid...)
-├── server.js             # Point d'entrée & Chef d'orchestre Socket.io
+├── server.js             # Point d'entrée & Orchestration Socket.io
 ├── /data
-│   └── history.json      # Base de données fichier (généré au runtime)
+│   └── history.json      # Base de données fichier (Générée au runtime)
 ├── /src                  # Logique Métier Backend
-│   ├── Logger.js         # Utilitaire de logs colorés
-│   ├── StorageService.js # Abstraction de la couche de données
-│   └── SSHManager.js     # Gestion des streams SSH et capture du temps
+│   ├── Logger.js         # Utilitaire de logs serveur colorés
+│   ├── StorageService.js # Abstraction de la couche de données (JSON/SQL ready)
+│   └── SSHManager.js     # Gestion des streams SSH, timings et parsings
 └── /public               # Frontend
     ├── index.html        # Structure DOM
     ├── style.css         # Thème sombre "Dracula-like"
-    └── app.js            # Logique Client (Tabs, xterm, ANSI rendering)
-🚀 Installation & Démarrage
-Prérequis
-Node.js (v16+ recommandé)
+    └── app.js            # Client (Gestion des Tabs, xterm, Rendu ANSI)
 
-NPM
+```
 
-1. Installation
-Cloner le projet et installer les dépendances :
+### Stack Technique
 
-Bash
+* **Backend :** Node.js + Express.
+* **Communication :** Socket.io (WebSockets bidirectionnels).
+* **Protocole :** `ssh2` (Client SSH pur JavaScript).
+* **Stockage :** JSON structuré (Architecture `StorageService` prête pour migration SQL/PostgreSQL).
 
-# Aller dans le dossier
+---
+
+## 🚀 Installation & Démarrage
+
+### Prérequis
+
+* **Node.js** (v16 ou supérieur recommandé)
+* **NPM**
+
+### 1. Installation
+
+Clonez le dépôt et installez les dépendances :
+
+```bash
+# Cloner le projet
+git clone https://github.com/orurmedon/hydra.sh.git
 cd hydra.sh
 
 # Installer les paquets
 npm install
-2. Démarrage
-Lancer le serveur Node.js :
 
-Bash
+```
 
-node server.js
-3. Utilisation
-Ouvrez votre navigateur sur http://localhost:3000.
+### 2. Démarrage
 
-Accueil : Remplissez vos infos (Votre nom d'utilisateur App) et les identifiants SSH de la cible.
+Lancez le serveur :
 
-Connexion : Cliquez sur "Connecter". Un nouvel onglet s'ouvre.
+```bash
+npm start
 
-Commandes : Tapez vos commandes (ex: ls -la, top, echo "hello").
+```
 
-Historique : Regardez la barre latérale gauche se remplir en temps réel.
+*Le serveur démarrera par défaut sur le port 3000.*
 
-Détails : Cliquez sur une entrée de l'historique pour voir la sortie (Output) dans la modale.
+### 3. Utilisation
 
-⚠️ Avertissements de Sécurité (Beta)
-Ce projet est un Proof of Concept (POC) fonctionnel. Avant une mise en production réelle, les points suivants doivent être traités :
+1. Ouvrez votre navigateur sur `http://localhost:3000`.
+2. **Accueil :** Renseignez votre nom d'utilisateur (pour l'audit) et les identifiants SSH de la machine cible (Host, User, Password).
+3. **Connexion :** Un nouvel onglet s'ouvre avec votre shell.
+4. **Commandes :** Utilisez le terminal normalement (`ls -la`, `top`, `docker ps`...).
+5. **Audit :** Observez la barre latérale gauche se remplir en temps réel. Cliquez sur une entrée pour analyser la sortie.
 
-HTTPS : Le protocole SSH passe ici par des WebSockets non chiffrés (HTTP). À utiliser uniquement en local ou derrière un Reverse Proxy HTTPS (Nginx/Traefik).
+---
 
-Stockage des Credentials : Actuellement, les mots de passe transitent via Socket.io. L'implémentation d'une authentification par clé SSH (privateKey) est recommandée.
+## ⚠️ Avertissements de Sécurité (Beta)
 
-Persistence : Le fichier history.json peut devenir volumineux. Une migration vers SQLite ou MongoDB est conseillée pour les gros volumes.
+> **Note importante :** Ce projet est un Proof of Concept (POC) fonctionnel.
 
-🔮 Roadmap (Améliorations futures)
-[ ] Base de données : Connecteur SQLite pour remplacer le JSON.
+Avant une mise en production, veuillez considérer les points suivants :
 
-[ ] Authentification SSH par Clé : Upload de fichiers .pem ou id_rsa.
+1. **HTTPS Requis :** Le protocole SSH transite ici via des WebSockets. En HTTP, les données sont en clair. Utilisez **impérativement** un Reverse Proxy (Nginx, Traefik, Apache) avec SSL/TLS activé.
+2. **Gestion des Credentials :** Actuellement, les mots de passe transitent via Socket.io. L'implémentation de l'authentification par clé privée SSH est fortement recommandée.
+3. **Persistence :** Le stockage `history.json` n'est pas optimisé pour des millions d'entrées. Une migration vers une base de données réelle est conseillée pour les gros volumes.
 
-[ ] Recherche : Barre de recherche pour filtrer l'historique par commande ou contenu.
+---
 
-[ ] Export : Télécharger les logs d'une session en .txt.
+## 🔮 Roadmap
 
-[ ] Themes : Sélecteur de thèmes pour le terminal (Solarized, Monokai...).
+Voici les axes de développement futurs pour transformer Hydra en outil de production :
 
-📄 Licence
-Distribué sous la licence MIT. Créé pour démontrer la puissance de Node.js, xterm.js et Socket.io.
+* [ ] **Base de données :** Connecteur SQLite/PostgreSQL pour remplacer le JSON.
+* [ ] **Sécurité SSH :** Support de l'upload de clés (`.pem`, `id_rsa`) pour l'authentification.
+* [ ] **Recherche Globale :** Barre de recherche pour filtrer l'historique par commande, auteur ou contenu de l'output.
+* [ ] **Export d'Audit :** Téléchargement des logs de session en format `.txt` ou `.json`.
+* [ ] **Thématisation :** Sélecteur de thèmes pour le terminal (Solarized, Monokai, Github Light).
+
+---
+
+## 📄 Licence
+
+Distribué sous la licence **MIT**.
+Créé pour démontrer la puissance de l'écosystème **Node.js**, **xterm.js** et **Socket.io**.
+
+---
