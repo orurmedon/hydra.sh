@@ -203,9 +203,21 @@ export class SSHSession extends EventEmitter {
 
     getHostnameFromPrompt(promptLine) {
         if (!promptLine) return null;
-        const clean = this.stripAnsi(promptLine);
+        const clean = this.stripAnsi(promptLine).trim();
+
+        // Pattern 1: user@hostname
         const match = /@([a-zA-Z0-9.-]+)([:$#>])/.exec(clean);
-        return match ? match[1] : null;
+        if (match) return match[1];
+
+        // Pattern 2: [hostname version]
+        const match2 = /^\[([a-zA-Z0-9.-]+)/.exec(clean);
+        if (match2) return match2[1];
+
+        // Pattern 3: (hostname) 
+        const match3 = /^\(([a-zA-Z0-9.-]+)\)/.exec(clean);
+        if (match3) return match3[1];
+
+        return null;
     }
 
     async finalizeLog() {
@@ -253,11 +265,9 @@ export class SSHSession extends EventEmitter {
             if (this.shellPrompt && cleanLastLine === this.stripAnsi(this.shellPrompt)) {
                 isPrompt = true;
             }
-            // 2. Fallback "sysadmin"
-            else if (cleanLastLine.endsWith('$') || cleanLastLine.endsWith('#') || cleanLastLine.endsWith('>')) {
-                if (cleanLastLine.includes('@') || cleanLastLine.includes(':')) {
-                    isPrompt = true;
-                }
+            // 2. Fallback "sysadmin" - any line ending with common prompt chars
+            else if (cleanLastLine.endsWith('$') || cleanLastLine.endsWith('#') || cleanLastLine.endsWith('>') || cleanLastLine.endsWith('%')) {
+                isPrompt = true;
             }
 
             if (isPrompt) {

@@ -1,0 +1,22 @@
+{
+    "sankey": {
+        "title": "Diagramme de Flux (Sankey)",
+        "description": "Ce graphique montre le chemin logique de vos commandes. Imaginez des rivières : la source est la commande principale, et les branches montrent les options ou les fichiers que vous utilisez souvent avec.",
+        "interpretation": "Plus un trait est épais, plus vous utilisez cet enchaînement souvent. Cliquez sur un bloc pour voir tout le chemin parcouru par une commande."
+    },
+    "flame": {
+        "title": "Carte de Fréquence (Icicle)",
+        "description": "C'est une vue d'ensemble de vos habitudes. Les blocs les plus larges représentent les commandes que vous tapez le plus souvent.",
+        "interpretation": "Regardez les blocs larges pour identifier vos outils principaux. Plus vous descendez dans les blocs, plus vous voyez les détails (arguments) de ces commandes."
+    },
+    "gantt": {
+        "title": "Ligne de Temps (Gantt)",
+        "description": "Ce graphique affiche l'ordre chronologique de vos actions. C'est comme un calendrier d'exécution qui montre quand chaque commande a été lancée.",
+        "interpretation": "Utilisez-le pour retrouver ce que vous faisiez à un moment précis. Vous pouvez zoomer sur une heure ou un jour particulier pour voir le détail des actions."
+    },
+    "radial": {
+        "title": "Montre d'Activité (Radial)",
+        "description": "Une vue circulaire qui représente 24 heures. Vos commandes apparaissent sous forme d'arcs colorés sur le cadran de l'horloge.",
+        "interpretation": "L'heure est indiquée sur le bord comme sur une montre. Vous pouvez tourner le cadran ou zoomer pour identifier exactement quelle commande a été lancée à quelle heure."
+    }
+}

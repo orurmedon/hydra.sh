@@ -31,6 +31,119 @@ document.addEventListener('DOMContentLoaded', () => {
         socket.emit('load-full-history');
     };
 
+    // --- IA-AS-CODE (FORM BASED) ---
+    let iaHistoryCache = null;
+
+    const iaBtn = document.getElementById('btn-ia-tab');
+    if (iaBtn) {
+        iaBtn.onclick = () => {
+            switchTab('ia-tab');
+            socket.emit('load-full-history'); // Load history for filters
+            socket.emit('load-ia-config'); // Load API config
+        };
+    }
+
+    socket.on('full-history', (historyData) => {
+        visualInteraction.render(historyData);
+        iaHistoryCache = historyData;
+        populateIaFilters(historyData);
+    });
+
+    socket.on('ia-config', (config) => {
+        const apiInfo = document.getElementById('ia-api-info');
+        if (apiInfo && config) {
+            const url = config.apiUrl || 'Non configuré';
+            apiInfo.textContent = url.includes('openai') ? 'OpenAI API' : url.substring(0, 30) + '...';
+        }
+    });
+
+    function populateIaFilters(historyData) {
+        const connSelect = document.getElementById('ia-connection');
+        const usersList = document.getElementById('ia-users-list');
+        if (!connSelect || !usersList || !historyData) return;
+
+        const connections = new Set();
+        const users = new Set();
+
+        Object.keys(historyData).forEach(ip => {
+            Object.keys(historyData[ip]).forEach(date => {
+                historyData[ip][date].forEach(e => {
+                    connections.add(e.connectionName || ip);
+                    users.add(e.user);
+                });
+            });
+        });
+
+        connSelect.innerHTML = '<option value="">-- Toutes les connexions --</option>';
+        Array.from(connections).sort().forEach(c => {
+            connSelect.innerHTML += `<option value="${c}">${c}</option>`;
+        });
+
+        usersList.innerHTML = '';
+        Array.from(users).sort().forEach(u => {
+            const label = document.createElement('label');
+            label.innerHTML = `<input type="checkbox" value="${u}"> ${u}`;
+            usersList.appendChild(label);
+        });
+    }
+
+    const iaSubmitBtn = document.getElementById('btn-ia-submit');
+    if (iaSubmitBtn) {
+        iaSubmitBtn.onclick = () => {
+            const startDate = document.getElementById('ia-date-start').value;
+            const endDate = document.getElementById('ia-date-end').value;
+            const connection = document.getElementById('ia-connection').value;
+            const selectedUsers = Array.from(document.querySelectorAll('#ia-users-list input:checked')).map(i => i.value);
+            const purpose = document.getElementById('ia-purpose').value;
+            const comment = document.getElementById('ia-comment').value;
+
+            if (!purpose.trim()) {
+                alert("Veuillez spécifier le but de la manœuvre.");
+                return;
+            }
+
+            const statusEl = document.getElementById('ia-status');
+            if (statusEl) {
+                statusEl.textContent = 'PROCESSING...';
+                statusEl.classList.add('processing');
+            }
+
+            socket.emit('ia-query', {
+                startDate,
+                endDate,
+                connection,
+                users: selectedUsers,
+                purpose,
+                comment
+            });
+        };
+    }
+
+    socket.on('ia-response', ({ payload }) => {
+        const statusEl = document.getElementById('ia-status');
+        if (statusEl) {
+            statusEl.textContent = 'COMPLETED';
+            statusEl.classList.remove('processing');
+        }
+        const resultDiv = document.getElementById('ia-result');
+        const contentDiv = document.getElementById('ia-result-content');
+        if (resultDiv && contentDiv) {
+            contentDiv.textContent = payload;
+            resultDiv.classList.remove('hidden');
+        }
+    });
+
+    // --- VIZ SELECTOR ---
+    document.querySelectorAll('.viz-btn').forEach(btn => {
+        btn.onclick = () => {
+            document.querySelectorAll('.viz-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            if (visualInteraction) {
+                visualInteraction.setVizType(btn.dataset.viz);
+            }
+        };
+    });
+
     socket.on('full-history', (historyData) => {
         visualInteraction.render(historyData);
     });
@@ -124,9 +237,11 @@ document.addEventListener('DOMContentLoaded', () => {
             activeIpLabel.textContent = `Connecté à : ${tabs[id].ip}`;
             renderHistoryTree(tabs[id].history);
             socket.emit('resize', { tabId: id, rows: tabs[id].term.rows, cols: tabs[id].term.cols });
+        } else if (id === 'ia-tab') {
+            document.getElementById('btn-ia-tab').classList.add('active');
         } else {
-            activeIpLabel.textContent = "Non connecté";
-            historyTree.innerHTML = '<div style="padding:10px; color:#666; font-style:italic">Sélectionnez un terminal.</div>';
+            if (activeIpLabel) activeIpLabel.textContent = "Non connecté";
+            if (historyTree) historyTree.innerHTML = '<div style="padding:10px; color:#666; font-style:italic">Sélectionnez un terminal.</div>';
         }
     }
 
@@ -333,7 +448,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                     <div class="h-meta">${entry.timestamp.split('T')[1].split('.')[0]}</div>
                 `;
-                div.onclick = () => showModal(entry);
+                div.onclick = () => window.showOutputModal(entry.cmd, entry.output);
                 details.appendChild(div);
             });
             historyTree.appendChild(details);
@@ -341,13 +456,48 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- MODAL ---
-    function showModal(entry) {
-        document.getElementById('modal-title').textContent = `CMD: ${entry.cmd}`;
+    window.showOutputModal = (cmd, output) => {
+        document.getElementById('modal-title').textContent = `CMD: ${cmd}`;
         const body = document.getElementById('modal-body');
-        body.innerHTML = entry.output ? new AnsiUp().ansi_to_html(entry.output) : '<i>(Vide)</i>';
+        body.innerHTML = output ? new AnsiUp().ansi_to_html(output) : '<i>(Vide)</i>';
         modal.classList.remove('hidden');
     }
     document.getElementById('btn-close-modal').onclick = () => modal.classList.add('hidden');
+
+    // --- IA-AS-CODE ---
+    const iaInput = document.getElementById('ia-input');
+    const iaSend = document.getElementById('btn-ia-send');
+    const iaMessages = document.getElementById('ia-messages');
+
+    if (iaSend && iaInput) {
+        iaSend.onclick = () => {
+            const val = iaInput.value.trim();
+            if (!val) return;
+
+            // User msg UI
+            const userDiv = document.createElement('div');
+            userDiv.className = 'ia-msg user';
+            userDiv.innerHTML = `<i class="fa-solid fa-user"></i> <span>${val}</span>`;
+            iaMessages.appendChild(userDiv);
+            iaInput.value = '';
+            iaMessages.scrollTop = iaMessages.scrollHeight;
+
+            // LOADING state for bot
+            const loadingDiv = document.createElement('div');
+            loadingDiv.className = 'ia-msg bot loading-ia';
+            loadingDiv.innerHTML = `<i class="fa-solid fa-robot"></i> <span>Analyse en cours... <i class="fa-solid fa-spinner fa-spin"></i></span>`;
+            iaMessages.appendChild(loadingDiv);
+            iaMessages.scrollTop = iaMessages.scrollHeight;
+
+            // Emit to backend
+            socket.emit('ia-query', { text: val });
+
+            // Remove loading when response arrives (handled in socket listener)
+            socket.once('ia-response', () => {
+                loadingDiv.remove();
+            });
+        };
+    }
 
     window.addEventListener('resize', () => {
         if (tabs[activeTabId]) {

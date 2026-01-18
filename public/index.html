@@ -34,6 +34,8 @@
                 <button class="tab-btn active" data-id="home-tab"><i class="fa-solid fa-house"></i> Accueil</button>
                 <button class="tab-btn" data-id="visual-tab" id="btn-visual-tab"><i
                         class="fa-solid fa-project-diagram"></i> Visual Interaction</button>
+                <button class="tab-btn" data-id="ia-tab" id="btn-ia-tab"><i class="fa-solid fa-brain"></i>
+                    IA-as-Code</button>
             </div>
         </div>
 
@@ -121,16 +123,139 @@
             <div class="tab-pane" id="pane-visual-tab">
                 <div class="visual-layout">
                     <div class="visual-sidebar">
-                        <h3><i class="fa-solid fa-chart-line"></i> Sankey</h3>
+                        <div class="viz-selector">
+                            <button class="viz-btn active" data-viz="sankey">
+                                <i class="fa-solid fa-project-diagram"></i> Sankey.sh
+                            </button>
+                            <button class="viz-btn" data-viz="flame">
+                                <i class="fa-solid fa-fire"></i> FlameGraph.sh
+                            </button>
+                            <button class="viz-btn" data-viz="gantt">
+                                <i class="fa-solid fa-timeline"></i> InputGantt.sh
+                            </button>
+                            <button class="viz-btn" data-viz="radial">
+                                <i class="fa-solid fa-clock"></i> RadialChrono.sh
+                            </button>
+                        </div>
                         <div class="filter-group">
                             <label>Connexion</label>
                             <select id="filter-connection" class="visual-select-single"></select>
                         </div>
-                        <div class="visual-legend">
-                            <p><small>Visualisation des flux de commandes.</small></p>
+                        <div class="filter-group">
+                            <label>Utilisateurs (Multi)</label>
+                            <label class="all-toggle"><input type="checkbox" id="user-all" checked> (Tous)</label>
+                            <div id="filter-users-list" class="cyber-multi-box">
+                                <!-- Populated by JS -->
+                            </div>
+                        </div>
+                        <div class="filter-group">
+                            <label>Types (Multi)</label>
+                            <label class="all-toggle"><input type="checkbox" id="type-all" checked> (Tous)</label>
+                            <div id="filter-types-list" class="cyber-multi-box">
+                                <label><input type="checkbox" value="bash" checked> Bash</label>
+                                <label><input type="checkbox" value="docker" checked> Docker</label>
+                                <label><input type="checkbox" value="DockerInteractive" checked> Docker-IT</label>
+                            </div>
+                        </div>
+                        <div id="time-filter-group" class="filter-group hidden">
+                            <label>Période</label>
+                            <select id="filter-time" class="visual-select-single">
+                                <option value="1">Dernière heure</option>
+                                <option value="24">Dernières 24h</option>
+                                <option value="168">7 derniers jours</option>
+                                <option value="all" selected>Tout l'historique</option>
+                            </select>
+                        </div>
+                        <div id="radial-controls" class="filter-group hidden">
+                            <label>Jour (Radial)</label>
+                            <select id="filter-day" class="visual-select-single"></select>
+
+                            <label style="margin-top: 10px;">Grouper par</label>
+                            <select id="filter-grouping" class="visual-select-single">
+                                <option value="executionType">Type d'exécution</option>
+                                <option value="user">Utilisateur</option>
+                            </select>
+                        </div>
+                        <div id="sidebar-viz-info" class="visual-sidebar-info">
+                            <h4 id="viz-info-title">Sankey Diagram</h4>
+                            <p id="viz-info-text">Visualisation du flux des arguments.</p>
+                            <div class="visual-legend" style="margin-top: 15px;">
+                                <p id="viz-description"><small>Interprétation...</small></p>
+                            </div>
                         </div>
                     </div>
                     <div id="visual-interaction-container" class="visual-main"></div>
+                </div>
+            </div>
+
+            <!-- IA-AS-CODE TAB -->
+            <div class="tab-pane" id="pane-ia-tab">
+                <div class="ia-layout">
+                    <div class="ia-form-main">
+                        <div class="ia-header">
+                            <h2><i class="fa-solid fa-brain"></i> IA-as-Code Audit Request</h2>
+                            <p>Soumettez une requête d'analyse sur une période de votre historique.</p>
+                        </div>
+                        <div class="ia-form">
+                            <div class="ia-form-row">
+                                <div class="ia-form-group">
+                                    <label><i class="fa-solid fa-calendar-days"></i> Période (Date Range)</label>
+                                    <div class="date-range-inputs">
+                                        <input type="date" id="ia-date-start" class="visual-select-single">
+                                        <span>→</span>
+                                        <input type="date" id="ia-date-end" class="visual-select-single">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="ia-form-row">
+                                <div class="ia-form-group">
+                                    <label><i class="fa-solid fa-plug"></i> Connexion</label>
+                                    <select id="ia-connection" class="visual-select-single">
+                                        <option value="">-- Toutes les connexions --</option>
+                                    </select>
+                                </div>
+                                <div class="ia-form-group">
+                                    <label><i class="fa-solid fa-users"></i> Utilisateurs (Multi)</label>
+                                    <div id="ia-users-list" class="cyber-multi-box">
+                                        <!-- Populated by JS -->
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="ia-form-row">
+                                <div class="ia-form-group full-width">
+                                    <label><i class="fa-solid fa-bullseye"></i> But de la manœuvre</label>
+                                    <input type="text" id="ia-purpose" class="visual-select-single"
+                                        placeholder="Ex: Audit de sécurité du déploiement Docker">
+                                </div>
+                            </div>
+                            <div class="ia-form-row">
+                                <div class="ia-form-group full-width">
+                                    <label><i class="fa-solid fa-comment"></i> Commentaire / Contexte</label>
+                                    <textarea id="ia-comment" class="visual-select-single" rows="3"
+                                        placeholder="Précisions supplémentaires pour l'IA..."></textarea>
+                                </div>
+                            </div>
+                            <button id="btn-ia-submit" class="btn-primary btn-lg"><i class="fa-solid fa-rocket"></i>
+                                Lancer l'Audit IA</button>
+                        </div>
+                        <div id="ia-result" class="ia-result hidden">
+                            <h3><i class="fa-solid fa-file-alt"></i> Résultat de l'Audit</h3>
+                            <div id="ia-result-content" class="ia-result-content"></div>
+                        </div>
+                    </div>
+                    <div class="ia-sidebar">
+                        <div class="ia-stat-card">
+                            <h3><i class="fa-solid fa-shield-halved"></i> Audit Status</h3>
+                            <div id="ia-status" class="status-indicator">STANDBY</div>
+                        </div>
+                        <div class="ia-stat-card">
+                            <h3><i class="fa-solid fa-gear"></i> API IA</h3>
+                            <div id="ia-api-info" class="meta">Chargement...</div>
+                        </div>
+                        <div class="ia-config-info">
+                            <small>Config: <code>/data/iaApi.json</code></small>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

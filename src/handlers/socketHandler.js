@@ -1,6 +1,7 @@
 import { SSHManager } from '../services/SSHService.js';
 import { Storage } from '../services/StorageService.js';
 import { log } from '../utils/Logger.js';
+import AIService from '../services/AIService.js';
 
 export const registerSocketHandlers = (io) => {
     io.on('connection', (socket) => {
@@ -66,6 +67,42 @@ export const registerSocketHandlers = (io) => {
         socket.on('load-full-history', async () => {
             const history = await Storage.getGlobalHistory();
             socket.emit('full-history', history);
+        });
+
+        socket.on('load-ia-config', async () => {
+            socket.emit('ia-config', AIService.config);
+        });
+
+        socket.on('ia-query', async ({ startDate, endDate, connection, users, purpose, comment }) => {
+            try {
+                log('IA', `Audit request: ${purpose}`, 'INFO');
+                const history = await Storage.getGlobalHistory();
+
+                // Filter history based on params
+                const flatHistory = [];
+                Object.keys(history).forEach(ip => {
+                    Object.keys(history[ip]).forEach(date => {
+                        // Date filter
+                        if (startDate && date < startDate) return;
+                        if (endDate && date > endDate) return;
+
+                        history[ip][date].forEach(e => {
+                            // Connection filter
+                            if (connection && (e.connectionName || ip) !== connection) return;
+                            // User filter
+                            if (users && users.length > 0 && !users.includes(e.user)) return;
+
+                            flatHistory.push({ cmd: e.cmd, user: e.user, type: e.executionType, date });
+                        });
+                    });
+                });
+
+                const response = await AIService.query(purpose, flatHistory, comment);
+                socket.emit('ia-response', { payload: response });
+            } catch (err) {
+                log('IA', `Erreur call IA: ${err.message}`, 'ERROR');
+                socket.emit('ia-response', { payload: "Désolé, une erreur est survenue lors de l'audit IA." });
+            }
         });
 
         socket.on('disconnect', () => {
