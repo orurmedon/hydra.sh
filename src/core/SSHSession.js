@@ -5,11 +5,13 @@ import EventEmitter from 'events';
 
 
 export class SSHSession extends EventEmitter {
-    constructor(socket, tabId, config) {
+    constructor(socket, tabId, config, rows = 24, cols = 80) {
         super();
         this.socket = socket;
         this.tabId = tabId;
         this.config = config;
+        this.initialRows = rows;
+        this.initialCols = cols;
         this.conn = new Client();
         this.jumpConn = null;
         this.stream = null;
@@ -115,7 +117,7 @@ export class SSHSession extends EventEmitter {
     }
 
     startShell() {
-        this.conn.shell({ term: 'xterm-256color', cols: 80, rows: 24 }, (err, stream) => {
+        this.conn.shell({ term: 'xterm-256color', cols: this.initialCols, rows: this.initialRows }, (err, stream) => {
             if (err) return;
             this.stream = stream;
 
@@ -153,9 +155,22 @@ export class SSHSession extends EventEmitter {
         this.stream.write(data);
 
         // Process char by char to handle pasted text or fast typing
-        for (const char of data) {
+        for (let i = 0; i < data.length; i++) {
+            const char = data[i];
+
+            // Handle Escape sequences (Arrow keys, etc.)
+            if (char === '\x1b') {
+                // Skip the whole sequence if possible
+                let j = i + 1;
+                while (j < data.length && !(/[a-zA-Z]/.test(data[j]))) {
+                    j++;
+                }
+                i = j; // Advance index to the end of the sequence
+                continue;
+            }
+
             if (char === '\r') {
-                // If currentCmd is dirty (arrows) or empty, try client line
+                // If currentCmd is dirty or empty, try client line
                 const isDirty = /\x1b|\[[A-Z]/.test(this.currentCmd);
                 if ((!this.currentCmd.trim() || isDirty) && clientLine) {
                     this.currentCmd = this.extractCommandFromLine(clientLine);
@@ -172,7 +187,10 @@ export class SSHSession extends EventEmitter {
                 this.currentCmd = this.currentCmd.slice(0, -1);
             }
             else if (char >= ' ' && !this.isRecording) {
-                this.currentCmd += char;
+                // Ignore other non-printable chars
+                if (char.charCodeAt(0) < 127) {
+                    this.currentCmd += char;
+                }
             }
         }
     }
@@ -324,7 +342,9 @@ export class SSHSession extends EventEmitter {
     }
 
     resize({ rows, cols }) {
-        if (this.stream) this.stream.setWindow(rows, cols, 0, 0);
+        if (this.stream) {
+            this.stream.setWindow(rows, cols, 0, 0);
+        }
     }
 
     cleanup() {

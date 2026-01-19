@@ -2,6 +2,9 @@ import { SSHManager } from '../services/SSHService.js';
 import { Storage } from '../services/StorageService.js';
 import { log } from '../utils/Logger.js';
 import AIService from '../services/AIService.js';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 export const registerSocketHandlers = (io) => {
     io.on('connection', (socket) => {
@@ -11,12 +14,12 @@ export const registerSocketHandlers = (io) => {
 
         // 1. Création d'un onglet SSH
         socket.on('create-session', async (config) => {
-            const { tabId } = config;
+            const { tabId, rows, cols } = config;
 
             const storagePath = Storage.getConnectionFilePath();
-            log('SESSION', `Ouverture onglet ${tabId} vers ${config.host} (Source: ${storagePath})`);
+            log('SESSION', `Ouverture onglet ${tabId} vers ${config.host} (DIMS: ${cols}x${rows})`);
 
-            const session = SSHManager.createSession(socket, tabId, config);
+            const session = SSHManager.createSession(socket, tabId, config, rows, cols);
             sessions.set(tabId, session);
 
             // Charger l'historique initial
@@ -70,7 +73,36 @@ export const registerSocketHandlers = (io) => {
         });
 
         socket.on('load-ia-config', async () => {
-            socket.emit('ia-config', AIService.config);
+            // Send both the current active config and the list of available configurations
+            const data = await fs.promises.readFile(path.join(path.dirname(fileURLToPath(import.meta.url)), '../../data/iaApi.json'), 'utf-8');
+            const fullJson = JSON.parse(data);
+            socket.emit('ia-config', {
+                active: AIService.config,
+                available: fullJson.configurations.map(c => ({ id: c.id, name: c.name }))
+            });
+        });
+
+        socket.on('change-ia-config', async ({ configId }) => {
+            try {
+                const configPath = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../data/iaApi.json');
+                const data = await fs.promises.readFile(configPath, 'utf-8');
+                const fullJson = JSON.parse(data);
+
+                fullJson.activeConfigId = configId;
+                await fs.promises.writeFile(configPath, JSON.stringify(fullJson, null, 4));
+
+                AIService.reloadConfig();
+
+                // Refresh client
+                socket.emit('ia-config', {
+                    active: AIService.config,
+                    available: fullJson.configurations.map(c => ({ id: c.id, name: c.name }))
+                });
+
+                log('IA', `Active configuration switched to: ${configId}`);
+            } catch (err) {
+                log('IA', `Error switching config: ${err.message}`, 'ERROR');
+            }
         });
 
         socket.on('ia-query', async ({ startDate, endDate, connection, users, purpose, comment }) => {
@@ -92,7 +124,13 @@ export const registerSocketHandlers = (io) => {
                             // User filter
                             if (users && users.length > 0 && !users.includes(e.user)) return;
 
-                            flatHistory.push({ cmd: e.cmd, user: e.user, type: e.executionType, date });
+                            flatHistory.push({
+                                cmd: e.cmd,
+                                user: e.user,
+                                type: e.executionType,
+                                date: e.timestamp, // Using full timestamp for better precision
+                                output: e.output
+                            });
                         });
                     });
                 });

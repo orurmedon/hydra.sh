@@ -9,8 +9,8 @@ class SSHService {
         // To be trully modular, we could manage them here, but we need the socket.
     }
 
-    createSession(socket, tabId, config) {
-        const session = new SSHSession(socket, tabId, config);
+    createSession(socket, tabId, config, rows = 24, cols = 80) {
+        const session = new SSHSession(socket, tabId, config, rows, cols);
 
         // Listen to session events
         session.on('session-data', (payload) => {

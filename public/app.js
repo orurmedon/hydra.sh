@@ -49,11 +49,35 @@ document.addEventListener('DOMContentLoaded', () => {
         populateIaFilters(historyData);
     });
 
-    socket.on('ia-config', (config) => {
+    socket.on('ia-config', (payload) => {
         const apiInfo = document.getElementById('ia-api-info');
-        if (apiInfo && config) {
-            const url = config.apiUrl || 'Non configuré';
-            apiInfo.textContent = url.includes('openai') ? 'OpenAI API' : url.substring(0, 30) + '...';
+        const modelSelect = document.getElementById('ia-model-select');
+
+        if (payload && payload.active) {
+            const config = payload.active;
+            const apiInfo = document.getElementById('ia-api-info');
+            if (apiInfo) {
+                apiInfo.innerHTML = `
+                    <div style="font-weight:bold; color:var(--cyber-blue);">${config.name}</div>
+                    <div style="font-size:0.85em; opacity:0.8;">${config.model}</div>
+                `;
+            }
+
+            // Populate select if it exists
+            if (modelSelect && payload.available) {
+                modelSelect.innerHTML = '';
+                payload.available.forEach(opt => {
+                    const el = document.createElement('option');
+                    el.value = opt.id;
+                    el.textContent = opt.name;
+                    el.selected = opt.id === config.id;
+                    modelSelect.appendChild(el);
+                });
+
+                modelSelect.onchange = () => {
+                    socket.emit('change-ia-config', { configId: modelSelect.value });
+                };
+            }
         }
     });
 
@@ -128,7 +152,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const resultDiv = document.getElementById('ia-result');
         const contentDiv = document.getElementById('ia-result-content');
         if (resultDiv && contentDiv) {
-            contentDiv.textContent = payload;
+            contentDiv.innerHTML = typeof marked !== 'undefined' ? marked.parse(payload) : payload;
             resultDiv.classList.remove('hidden');
         }
     });
@@ -194,9 +218,20 @@ document.addEventListener('DOMContentLoaded', () => {
         term.loadAddon(fitAddon);
         term.open(termDiv);
 
-        setTimeout(() => fitAddon.fit(), 50);
-
         tabs[tabId] = { id: tabId, ip: config.host, term, fitAddon, history: {} };
+
+        // 1. Switch tab FIRST so it's visible
+        switchTab(tabId);
+
+        // 2. Wait for DOM/Layout to settle before measuring
+        setTimeout(() => {
+            fitAddon.fit();
+            const cols = term.cols || 80;
+            const rows = term.rows || 24;
+
+            // 3. Emit create-session with stable dimensions
+            socket.emit('create-session', { ...config, tabId, cols, rows });
+        }, 100);
 
         term.onData(data => {
             if (data === '\r') {
@@ -207,9 +242,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 socket.emit('terminal-input', { tabId, data });
             }
         });
-        socket.emit('create-session', { ...config, tabId });
-
-        switchTab(tabId);
     }
 
     function switchTab(id) {

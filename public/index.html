@@ -193,8 +193,9 @@
                 <div class="ia-layout">
                     <div class="ia-form-main">
                         <div class="ia-header">
-                            <h2><i class="fa-solid fa-brain"></i> IA-as-Code Audit Request</h2>
-                            <p>Soumettez une requête d'analyse sur une période de votre historique.</p>
+                            <h2><i class="fa-solid fa-brain"></i> IA-as-Code Assistant</h2>
+                            <p>Décrivez votre besoin et l'IA générera une réponse exhaustive basée sur votre historique.
+                            </p>
                         </div>
                         <div class="ia-form">
                             <div class="ia-form-row">
@@ -236,21 +237,24 @@
                                 </div>
                             </div>
                             <button id="btn-ia-submit" class="btn-primary btn-lg"><i class="fa-solid fa-rocket"></i>
-                                Lancer l'Audit IA</button>
+                                Lancer la Génération IA</button>
                         </div>
                         <div id="ia-result" class="ia-result hidden">
-                            <h3><i class="fa-solid fa-file-alt"></i> Résultat de l'Audit</h3>
+                            <h3><i class="fa-solid fa-wand-magic-sparkles"></i> Réponse de l'Assistant IA</h3>
                             <div id="ia-result-content" class="ia-result-content"></div>
                         </div>
                     </div>
                     <div class="ia-sidebar">
                         <div class="ia-stat-card">
-                            <h3><i class="fa-solid fa-shield-halved"></i> Audit Status</h3>
+                            <h3><i class="fa-solid fa-microchip"></i> Assistant Status</h3>
                             <div id="ia-status" class="status-indicator">STANDBY</div>
                         </div>
                         <div class="ia-stat-card">
                             <h3><i class="fa-solid fa-gear"></i> API IA</h3>
                             <div id="ia-api-info" class="meta">Chargement...</div>
+                            <div style="margin-top: 10px;">
+                                <select id="ia-model-select" class="visual-select-single" style="width: 100%;"></select>
+                            </div>
                         </div>
                         <div class="ia-config-info">
                             <small>Config: <code>/data/iaApi.json</code></small>
@@ -279,6 +283,7 @@
     <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/ansi_up@5.2.1/ansi_up.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="utils/VisualInteraction.js"></script>
     <script src="app.js"></script>
 </body>
